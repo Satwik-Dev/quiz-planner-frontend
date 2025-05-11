@@ -6,7 +6,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  withCredentials: false
+  withCredentials: false,
+  timeout: 10000 // 10 second timeout
 });
 
 // Update request interceptor with better debugging
@@ -53,9 +54,15 @@ api.interceptors.response.use(
         }
       }
     } else if (error.request) {
-      console.error('Network error:', error.request);
+      console.error('Network error - no response received:', error.request);
+      // Add more detailed error for network issues
+      if (error.code === 'ECONNABORTED') {
+        console.error('Request timeout - server took too long to respond');
+      } else {
+        console.error('Network error - check if the backend server is running');
+      }
     } else {
-      console.error('Error:', error.message);
+      console.error('Error setting up request:', error.message);
     }
     
     return Promise.reject(error);
