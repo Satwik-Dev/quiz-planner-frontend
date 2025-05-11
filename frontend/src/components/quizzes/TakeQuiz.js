@@ -18,17 +18,28 @@ const TakeQuiz = () => {
     const fetchQuiz = async () => {
       try {
         setLoading(true);
-        console.log('Fetching quiz with ID:', id); // Debug log
+        console.log('Fetching quiz with ID:', id);
         const response = await api.get(`/quizzes/${id}`);
+        console.log('Quiz data:', response.data);
         setQuiz(response.data);
         setError('');
       } catch (err) {
         console.error('Error fetching quiz:', err);
-        if (err.response?.status === 404) {
-          setError('Quiz not found. It may have been deleted or you do not have access to it.');
-        } else {
-          setError('Failed to fetch quiz. Please try again later.');
+        console.error('Error response:', err.response);
+        
+        let errorMessage = 'Failed to fetch quiz. Please try again later.';
+        
+        if (err.response) {
+          if (err.response.status === 404) {
+            errorMessage = 'Quiz not found. It may have been deleted or you do not have access to it.';
+          } else if (err.response.status === 401) {
+            errorMessage = 'Authentication error. Please login again.';
+          } else {
+            errorMessage = err.response.data?.error || errorMessage;
+          }
         }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -69,16 +80,31 @@ const TakeQuiz = () => {
     }
 
     try {
-      console.log('Submitting answers for quiz:', id); // Debug log
+      console.log('Submitting answers for quiz:', id);
+      console.log('Answers being submitted:', answers);
+      
       const response = await api.post(`/quizzes/${id}/attempt`, {
         answers
       });
       
+      console.log('Submit response:', response.data);
+      
       setResults(response.data);
       setQuizSubmitted(true);
+      setError('');
     } catch (err) {
       console.error('Error submitting quiz:', err);
-      setError('Failed to submit quiz. Please try again later.');
+      console.error('Error response:', err.response);
+      
+      let errorMessage = 'Failed to submit quiz. Please try again later.';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -86,7 +112,7 @@ const TakeQuiz = () => {
     return <div className="loading">Loading quiz...</div>;
   }
 
-  if (error) {
+  if (error && !quiz) {
     return (
       <div className="error-state">
         <div className="alert alert-danger">{error}</div>
@@ -184,7 +210,7 @@ const TakeQuiz = () => {
             <span className="percentage">({results.percentage.toFixed(1)}%)</span>
           </div>
           <div>
-            <Link to={`/quizzes/${id}`} className="btn btn-primary me-2">
+            <Link to={`/quizzes/${id}`} className="btn btn-primary me-2" onClick={() => window.location.reload()}>
               Retake Quiz
             </Link>
             <Link to="/quizzes" className="btn btn-outline-primary">

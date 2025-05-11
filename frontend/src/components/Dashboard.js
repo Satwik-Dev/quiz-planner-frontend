@@ -67,9 +67,9 @@ const Dashboard = () => {
       }
       
       const attemptsResponse = await api.get(`/quizzes/attempts?${params.toString()}`);
-      setQuizAttempts(attemptsResponse.data.attempts);
-      setTotalPages(attemptsResponse.data.pagination.pages);
-      setTotalAttempts(attemptsResponse.data.pagination.total);
+      setQuizAttempts(attemptsResponse.data.attempts || []);
+      setTotalPages(attemptsResponse.data.pagination?.pages || 1);
+      setTotalAttempts(attemptsResponse.data.pagination?.total || 0);
     } catch (err) {
       console.error('Failed to load quiz attempts:', err);
     }
@@ -79,37 +79,52 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching dashboard data...');
         
         // Fetch dashboard data
         const dashboardResponse = await api.get('/quizzes/dashboard');
+        console.log('Dashboard response:', dashboardResponse.data);
+        
         const dashboardData = dashboardResponse.data;
         
         // Set stats using the actual material count from backend
         setStats({
-          materialsCount: dashboardData.stats.total_materials,
-          quizzesCount: dashboardData.stats.total_quizzes,
-          attemptsCount: dashboardData.stats.total_attempts,
-          averageScore: dashboardData.stats.average_score
+          materialsCount: dashboardData.stats?.total_materials || 0,
+          quizzesCount: dashboardData.stats?.total_quizzes || 0,
+          attemptsCount: dashboardData.stats?.total_attempts || 0,
+          averageScore: dashboardData.stats?.average_score || 0
         });
         
         // Set recent quizzes
-        setRecentQuizzes(dashboardData.recentQuizzes);
+        setRecentQuizzes(dashboardData.recentQuizzes || []);
         
-        // Set recent materials if available
-        if (dashboardData.recentMaterials) {
-          setRecentMaterials(dashboardData.recentMaterials);
-        } else {
-          // Fallback to fetching materials
-          const materialsResponse = await api.get('/materials');
-          setRecentMaterials(materialsResponse.data.slice(0, 3));
-        }
+        // Set recent materials
+        setRecentMaterials(dashboardData.recentMaterials || []);
         
         // Fetch quiz attempts with pagination and filtering
         await fetchAttempts();
         
+        setError(''); // Clear any previous errors
+        
       } catch (err) {
-        setError('Failed to load dashboard data');
-        console.error(err);
+        console.error('Dashboard fetch error:', err);
+        console.error('Error response:', err.response);
+        
+        let errorMessage = 'Failed to load dashboard data';
+        
+        if (err.response) {
+          if (err.response.status === 401) {
+            errorMessage = 'Authentication error. Please login again.';
+          } else if (err.response.status === 404) {
+            errorMessage = 'Dashboard endpoint not found.';
+          } else {
+            errorMessage = err.response.data?.error || errorMessage;
+          }
+        } else if (err.request) {
+          errorMessage = 'Cannot connect to server. Please check your internet connection.';
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -120,8 +135,10 @@ const Dashboard = () => {
   
   // Load attempts when page or filters change
   useEffect(() => {
-    fetchAttempts();
-  }, [fetchAttempts]);
+    if (!loading) {
+      fetchAttempts();
+    }
+  }, [fetchAttempts, loading]);
 
   const handleClearFilters = () => {
     setSearchQuery('');
@@ -204,10 +221,10 @@ const Dashboard = () => {
           {recentMaterials.length > 0 ? (
             <div className="recent-items">
               {recentMaterials.map(material => (
-                <div key={material._id || material.id} className="recent-item">
+                <div key={material.id} className="recent-item">
                   <h3>{material.title}</h3>
                   <p>{material.description || 'No description'}</p>
-                  <Link to={`/materials/${material._id || material.id}`} className="btn btn-sm btn-outline-primary">
+                  <Link to={`/materials/${material.id}`} className="btn btn-sm btn-outline-primary">
                     View Material
                   </Link>
                 </div>

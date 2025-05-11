@@ -7,10 +7,10 @@ const api = axios.create({
     'Content-Type': 'application/json'
   },
   withCredentials: false,
-  timeout: 10000 // 10 second timeout
+  timeout: 30000 // 30 second timeout - increased for production
 });
 
-// Update request interceptor with better debugging
+// Request interceptor with better debugging
 api.interceptors.request.use(
   config => {
     // Log each request for debugging (remove in production)
@@ -32,7 +32,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle errors
+// Response interceptor with improved error handling
 api.interceptors.response.use(
   response => {
     if (process.env.NODE_ENV === 'development') {
@@ -46,20 +46,40 @@ api.interceptors.response.use(
       
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Only redirect if not already on login page
-        if (window.location.pathname !== '/login') {
+        // Only clear auth if we're not already on login page
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
           window.location.href = '/login';
         }
+      }
+      
+      // Handle CORS errors
+      if (error.response.status === 0 || error.message === 'Network Error') {
+        console.error('CORS error or network issue');
+        error.response = {
+          data: {
+            error: 'Network error. Please check your connection and try again.'
+          }
+        };
       }
     } else if (error.request) {
       console.error('Network error - no response received:', error.request);
       // Add more detailed error for network issues
       if (error.code === 'ECONNABORTED') {
         console.error('Request timeout - server took too long to respond');
+        error.response = {
+          data: {
+            error: 'Request timeout. Please try again.'
+          }
+        };
       } else {
         console.error('Network error - check if the backend server is running');
+        error.response = {
+          data: {
+            error: 'Cannot connect to server. Please check your internet connection.'
+          }
+        };
       }
     } else {
       console.error('Error setting up request:', error.message);
