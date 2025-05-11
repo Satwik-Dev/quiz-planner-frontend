@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../contexts/AuthContext';
@@ -46,6 +46,35 @@ const Dashboard = () => {
     setPage(1);
   }, [debouncedSearch, startDate, endDate]);
 
+  // Memoize fetchAttempts to avoid re-creating it on every render
+  const fetchAttempts = useCallback(async () => {
+    try {
+      // Build query params
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('limit', limit);
+      
+      if (debouncedSearch) {
+        params.append('search', debouncedSearch);
+      }
+      
+      if (startDate) {
+        params.append('start_date', new Date(startDate).toISOString());
+      }
+      
+      if (endDate) {
+        params.append('end_date', new Date(endDate).toISOString());
+      }
+      
+      const attemptsResponse = await api.get(`/quizzes/attempts?${params.toString()}`);
+      setQuizAttempts(attemptsResponse.data.attempts);
+      setTotalPages(attemptsResponse.data.pagination.pages);
+      setTotalAttempts(attemptsResponse.data.pagination.total);
+    } catch (err) {
+      console.error('Failed to load quiz attempts:', err);
+    }
+  }, [page, limit, debouncedSearch, startDate, endDate]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -87,40 +116,12 @@ const Dashboard = () => {
     };
     
     fetchDashboardData();
-  }, []);
-  
-  const fetchAttempts = async () => {
-    try {
-      // Build query params
-      const params = new URLSearchParams();
-      params.append('page', page);
-      params.append('limit', limit);
-      
-      if (debouncedSearch) {
-        params.append('search', debouncedSearch);
-      }
-      
-      if (startDate) {
-        params.append('start_date', new Date(startDate).toISOString());
-      }
-      
-      if (endDate) {
-        params.append('end_date', new Date(endDate).toISOString());
-      }
-      
-      const attemptsResponse = await api.get(`/quizzes/attempts?${params.toString()}`);
-      setQuizAttempts(attemptsResponse.data.attempts);
-      setTotalPages(attemptsResponse.data.pagination.pages);
-      setTotalAttempts(attemptsResponse.data.pagination.total);
-    } catch (err) {
-      console.error('Failed to load quiz attempts:', err);
-    }
-  };
+  }, [fetchAttempts]);
   
   // Load attempts when page or filters change
   useEffect(() => {
     fetchAttempts();
-  }, [page, debouncedSearch, startDate, endDate]);
+  }, [fetchAttempts]);
 
   const handleClearFilters = () => {
     setSearchQuery('');

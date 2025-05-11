@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import './Quizzes.css';
 
 const TakeQuiz = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
